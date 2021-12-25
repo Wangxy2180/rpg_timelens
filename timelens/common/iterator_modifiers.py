@@ -15,6 +15,7 @@ def make_iterator_over_groups(iterator, group_size):
     For example, if original iterator returns 1, 2, 3, 4, 5, "group_size"=3 and
     output iterator returns (1,2,3), (2,3,4).
     """
+    # 这种写法可太棒了
     group = []
     for item in iterator:
         group.append(item)

@@ -3,6 +3,7 @@ from timelens.common import warp
 from timelens import fusion_network, warp_network
 from timelens.superslomo import unet
 
+
 def _pack_for_residual_flow_computation(example):
     tensors = [
         example["middle"]["{}_warped".format(packet)] for packet in ["after", "before"]
@@ -31,10 +32,12 @@ def _pack_output_to_example(example, output):
 class RefineWarp(warp_network.Warp, fusion_network.Fusion):
     def __init__(self):
         warp_network.Warp.__init__(self)
+        # 这个fusion_network似乎也没用上啊
         self.fusion_network = unet.UNet(2 * 3 + 2 * 5, 3, False)
         self.flow_refinement_network = unet.UNet(9, 4, False)
 
     def run_refine_warp(self, example):
+        # 下边两句就是对应的这个网络的forward，只不过把返回参数包到example字典中了
         warp_network.Warp.run_and_pack_to_example(self, example)
         fusion_network.Fusion.run_and_pack_to_example(self, example)
         residual = self.flow_refinement_network(
@@ -47,7 +50,7 @@ class RefineWarp(warp_network.Warp, fusion_network.Fusion):
             y_displacement=residual[:, 0, ...],
             x_displacement=residual[:, 1, ...],
         )
-        
+
         (after_refined, before_refined) = th.chunk(refined, 2)
         (after_refined_invalid, before_refined_invalid) = th.chunk(
             refined_invalid.detach(), 2)
@@ -60,10 +63,9 @@ class RefineWarp(warp_network.Warp, fusion_network.Fusion):
             after_residual,
         )
 
-
     def run_fast(self, example):
-        warp_network.Warp.run_and_pack_to_example(self, example)
-        fusion_network.Fusion.run_and_pack_to_example(self, example)
+        warp_network.Warp.run_and_pack_to_example(self, example)  # example:164->575
+        fusion_network.Fusion.run_and_pack_to_example(self, example)  # example:575->675
         residual = self.flow_refinement_network(
             _pack_for_residual_flow_computation(example)
         )

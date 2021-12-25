@@ -345,6 +345,7 @@ class EventSequence(object):
             )
         first_sequence_duration = timestamp - self.start_time()
         second_sequence_duration = self.end_time() - timestamp
+        # 以开始时间和差值的时间为起始时间，创建事件序列
         first_sequence = self.filter_by_timestamp(
             self.start_time(), first_sequence_duration
         )
@@ -370,6 +371,7 @@ class EventSequence(object):
 
         for split_timestamp in split_timestamps:
             left_events, right_events = self.split_in_two(split_timestamp)
+            # 这里返回的是两个时间序列，就是切割的事件为分界点，返回他左右的事件
             yield left_events, right_events
 
     def make_sequential_iterator(self, timestamps):
@@ -389,7 +391,9 @@ class EventSequence(object):
 
         for end_timestamp in timestamps[1:]:
             end_index = self._advance_index_to_timestamp(end_timestamp, start_index)
+            # 这少了个判断吧
             self._features[start_index:end_index, :].size == 0
+            # 这里
             yield EventSequence(
                 features=np.copy(self._features[start_index:end_index, :]),
                 image_height=self._image_height,
@@ -420,6 +424,7 @@ class EventSequence(object):
         filename_iterator = os_tools.make_glob_filename_iterator(
             os.path.join(folder, event_file_template)
         )
+        # 这里存的是所有npz的文件名
         filenames = [filename for filename in filename_iterator]
         return cls.from_npz_files(filenames, image_height, image_width)
 
@@ -434,9 +439,11 @@ class EventSequence(object):
     ):
         """Reads event sequence from numpy file list."""
         if len(list_of_filenames) > 1:
+            # 这是一个的列表，他分文件导入了所有的事件信息
             features_list = []
             for f in tqdm.tqdm(list_of_filenames):
                 features_list += [load_events(f)]# for filename in list_of_filenames]
+                # 这里将她展开了，也就是变成完整的事件流，n*4的size
             features = np.concatenate(features_list)
         else:
             features = load_events(list_of_filenames[0])

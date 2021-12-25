@@ -31,8 +31,10 @@ def _interpolate(
     pytorch_tools.set_fastest_cuda_mode()
     combined_iterator = zip(boundary_frames_iterator, interframe_events_iterator)
     counter = 0
+    # 这个循环会一直遍历执行完所有的数据，用循环是为了从迭代器中取出数据，在下边把这两帧之间的插值完成了
     for (left_frame, right_frame), event_sequence in combined_iterator:
         print("Counter: %04d" % counter)
+        # 均匀的搞出插值时间
         output_timestamps += list(
             np.linspace(
                 event_sequence.start_time(),
@@ -40,13 +42,14 @@ def _interpolate(
                 2 + number_of_frames_to_interpolate,
             )
         )[:-1]
+        # 根据设定好的插值时间，返回该时间的左右事件序列
         iterator_over_splits = event_sequence.make_iterator_over_splits(
             number_of_frames_to_interpolate
         )
         output_frames.append(left_frame)
         output_frames[-1].save(join(output_folder, "{:06d}.png".format(counter)))
         counter += 1
-
+        # split_index:0~6
         for split_index, (left_events, right_events) in enumerate(iterator_over_splits):
             print("Events left: ", len(left_events._features), "Events right: ", len(right_events._features))
             example = _pack_to_example(
@@ -62,15 +65,17 @@ def _interpolate(
 
             with torch.no_grad():
                 frame, _ = network.run_fast(example)
-    
+            # 将数据截断到01之间，返回一个新的张量
             interpolated = th.clamp(
                 frame.squeeze().cpu().detach(), 0, 1,
             )
+            # 反正就是做了一步尺寸转换
             output_frames.append(transforms.ToPILImage()(interpolated))
             output_frames[-1].save(join(output_folder, "{:06d}.png".format(counter)))
             counter += 1
 
     output_frames.append(right_frame)
+    # 存生成的图像数据
     output_frames[-1].save(join(output_folder, "{:06d}.png".format(counter)))
     counter += 1
 
@@ -111,19 +116,23 @@ def run_recursively(
     transform_list = transformers.initialize_transformers()
     network = _load_network(checkpoint_file)
     leaf_image_folders = os_tools.find_leaf_folders(root_image_folder)
+    # 反正看意思就是把所有的数据全都遍历执行一次
     for leaf_image_folder in leaf_image_folders:
         relative_path = os.path.relpath(leaf_image_folder, root_image_folder)
         print("Processing {}".format(relative_path))
         leaf_event_folder = os.path.join(root_event_folder, relative_path)
         leaf_output_folder = os.path.join(root_output_folder, relative_path)
+        # 下边返回的是一个HybridStorage类,内含图像数据对象(图像.png、时间戳)和事件数据对象(事件.npz、图像尺寸)
         storage = hybrid_storage.HybridStorage.from_folders(
             leaf_event_folder, leaf_image_folder, "*.npz", "*.png"
         )
+        # 这里就是一个事件序列类，返回的是图像帧之间的事件数据，他通过yield实现了迭代
         interframe_events_iterator = storage.make_interframe_events_iterator(
-            number_of_frames_to_skip
+            number_of_frames_to_skip  # 0
         )
+        # 这是一个图像序列，返回左右两帧的图像(1,2),(2,3),(3,4),(4,5)这样的
         boundary_frames_iterator = storage.make_boundary_frames_iterator(
-            number_of_frames_to_skip
+            number_of_frames_to_skip  # 0
         )
         print("Processing {}".format(leaf_output_folder))
         os.makedirs(leaf_output_folder, exist_ok=True)
@@ -146,13 +155,22 @@ def run_recursively(
         input_image_sequence.to_video(os.path.join(leaf_output_folder, "input.mp4"))
 
 
-@click.command()
-@click.argument("checkpoint_file", type=click.Path(exists=True))
-@click.argument("root_event_folder", type=click.Path(exists=True))
-@click.argument("root_image_folder", type=click.Path(exists=True))
-@click.argument("root_output_folder", type=click.Path(exists=False))
-@click.argument("number_of_frames_to_skip", default=1)
-@click.argument("number_of_frames_to_insert", default=1)
+checkpoint_file = "../checkpoint.bin"
+root_event_folder = "../example/events"
+root_image_folder = "../example/images"
+root_output_folder = "../example/output"
+number_of_frames_to_skip = 0
+number_of_frames_to_insert = 7
+
+
+# 这是什么神奇的用法！！！
+# @click.command()
+# @click.argument("checkpoint_file", type=click.Path(exists=True))
+# @click.argument("root_event_folder", type=click.Path(exists=True))
+# @click.argument("root_image_folder", type=click.Path(exists=True))
+# @click.argument("root_output_folder", type=click.Path(exists=False))
+# @click.argument("number_of_frames_to_skip", default=1)
+# @click.argument("number_of_frames_to_insert", default=1)
 def main(
         checkpoint_file,
         root_event_folder,
@@ -173,4 +191,10 @@ def main(
 
 if __name__ == "__main__":
     """ This is executed when run from the command line """
-    main()
+    # main()
+    main(checkpoint_file,
+         root_event_folder,
+         root_image_folder,
+         root_output_folder,
+         number_of_frames_to_skip,
+         number_of_frames_to_insert)

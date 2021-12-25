@@ -10,7 +10,7 @@ from timelens.common import os_tools
 from timelens.common import iterator_modifiers
 import tqdm
 
-
+# 把文件名字保存好，这样以后被遍历时通过getitem就能读取了
 class ImageJITReader(object):
     """Reads Image Just-in-Time"""
     def __init__(self, filenames):
@@ -74,12 +74,15 @@ class ImageSequence(object):
     def from_folder(
         cls, folder, image_file_template="frame_{:010d}.png", timestamps_file="timestamps.txt"
     ):
+        # 这个iterator是一个list，中间存储的是图片的绝对路径
         filename_iterator = os_tools.make_glob_filename_iterator(
             os.path.join(folder, image_file_template)
         )
         filenames = [f for f in filename_iterator]
 
+        # 这个images实际是一个对象，对象中存着图像的绝对路径，需要时在将他读取出来
         images = ImageJITReader(filenames)
+        # 保存时间戳信息
         timestamps = np.loadtxt(os.path.join(folder, timestamps_file)).tolist()
 
         return cls(images, timestamps)

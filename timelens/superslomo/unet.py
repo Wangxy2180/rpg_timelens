@@ -78,24 +78,26 @@ class UNet(nn.Module):
     def forward(self, x):
         # Size adapter spatially augments input to the size divisible by 32.
         x = self._size_adapter.pad(x)
-        x = F.leaky_relu(self.conv1(x), negative_slope=0.1)
-        s1 = F.leaky_relu(self.conv2(x), negative_slope=0.1)
-        s2 = self.down1(s1)
-        s3 = self.down2(s2)
-        s4 = self.down3(s3)
-        s5 = self.down4(s4)
-        x = self.down5(s5)
-        x = self.up1(x, s5)
-        x = self.up2(x, s4)
-        x = self.up3(x, s3)
-        x = self.up4(x, s2)
-        x = self.up5(x, s1)
+        # 这里开始就是补充材料里画的网络结构了，但是不对应啊
+        x = F.leaky_relu(self.conv1(x), negative_slope=0.1)  # lr(7*7)
+        s1 = F.leaky_relu(self.conv2(x), negative_slope=0.1)  # lr(7*7)
+        s2 = self.down1(s1)  # avg_pool+lr(5*5)+lr(5*5)
+        s3 = self.down2(s2)  # avg_pool+lr(3*3)+lr(3*3)
+        s4 = self.down3(s3)  # avg_pool+lr(3*3)+lr(3*3)
+        s5 = self.down4(s4)  # avg_pool+lr(3*3)+lr(3*3)
+        x = self.down5(s5)  # avg_pool+lr(3*3)+lr(3*3)
+        x = self.up1(x, s5)  # bilinear+lr(3*3)+lr(3*3(cat(x,s5)))
+        x = self.up2(x, s4)  # bilinear+lr(3*3)+lr(3*3(cat(x,s4)))
+        x = self.up3(x, s3)  # bilinear+lr(3*3)+lr(3*3(cat(x,s3)))
+        x = self.up4(x, s2)  # bilinear+lr(3*3)+lr(3*3(cat(x,s2)))
+        x = self.up5(x, s1)  # bilinear+lr(3*3)+lr(3*3(cat(x,s1)))
 
+        # 三个unet全都是false
         # Note that original code has relu et the end.
         if self._ends_with_relu == True:
             x = F.leaky_relu(self.conv3(x), negative_slope=0.1)
         else:
-            x = self.conv3(x)
+            x = self.conv3(x)  # 3*3
         # Size adapter crops the output to the original size.
         x = self._size_adapter.unpad(x)
         return x
