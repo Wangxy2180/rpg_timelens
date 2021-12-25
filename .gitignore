@@ -1,2 +1,9 @@
 timelens/__pycache__/
 timelens/common/__pycache__/
+
+timelens/superslomo/__pycache__/
+timelens/superslomo/__pycache__/unet.cpython-37.pyc
+checkpoint.bin
+example_github.zip
+example/
+.idea
