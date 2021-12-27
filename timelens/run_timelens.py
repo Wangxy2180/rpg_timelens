@@ -64,6 +64,7 @@ def _interpolate(
             example = pytorch_tools.move_tensors_to_cuda(example)
 
             with torch.no_grad():
+                # 输出的就是average和attention
                 frame, _ = network.run_fast(example)
             # 将数据截断到01之间，返回一个新的张量
             interpolated = th.clamp(

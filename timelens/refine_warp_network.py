@@ -64,8 +64,10 @@ class RefineWarp(warp_network.Warp, fusion_network.Fusion):
         )
 
     def run_fast(self, example):
+        # 下边两句就是对应的这个网络的forward，只不过把返回参数包到example字典中了
         warp_network.Warp.run_and_pack_to_example(self, example)  # example:164->575
         fusion_network.Fusion.run_and_pack_to_example(self, example)  # example:575->675
+        # 取出前后warped的内容，并做concat，然后前向传播
         residual = self.flow_refinement_network(
             _pack_for_residual_flow_computation(example)
         )

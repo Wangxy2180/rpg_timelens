@@ -75,6 +75,7 @@ def collate(examples_list):
             if ("tensor" in field_name or "voxel_grid" in field_name) and (
                 "std" not in field_name and "mean" not in field_name
             ):
+                # 似乎就是在做维度上的改变
                 batch[packet_name][field_name] = th.stack(
                     [example[packet_name][field_name] for example in examples_list]
                 )

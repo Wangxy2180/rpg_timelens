@@ -32,7 +32,7 @@ def to_voxel_grid(event_sequence, nb_of_time_bins=5, remapping_maps=None):
                           event_sequence._image_width,
                           dtype=th.float32,
                           device='cpu')
-
+    # 变成一维的了,但是为啥他会同时填充呢
     voxel_grid_flat = voxel_grid.flatten()
 
     # Convert timestamps to [0, nb_of_time_bins] range.
@@ -42,13 +42,14 @@ def to_voxel_grid(event_sequence, nb_of_time_bins=5, remapping_maps=None):
     x = features[:, event.X_COLUMN]
     y = features[:, event.Y_COLUMN]
     polarity = features[:, event.POLARITY_COLUMN].float()
+    # 上边求出的t应该是个比值吧，0~4之间
     t = (features[:, event.TIMESTAMP_COLUMN] - start_timestamp) * (nb_of_time_bins - 1) / duration
     t = t.float()
 
     if remapping_maps is not None:
         remapping_maps = th.from_numpy(remapping_maps)
         x, y = remapping_maps[:,y,x]
-
+    # 得到每个事件的三维表示，其实就是把像素映射到四个事件层面上了
     left_t, right_t = t.floor(), t.floor()+1
     left_x, right_x = x.floor(), x.floor()+1
     left_y, right_y = y.floor(), y.floor()+1
@@ -60,11 +61,14 @@ def to_voxel_grid(event_sequence, nb_of_time_bins=5, remapping_maps=None):
                        & (lim_y <= event_sequence._image_height-1) & (lim_t <= nb_of_time_bins-1)
 
                 # we cast to long here otherwise the mask is not computed correctly
+                # 这里是在计算他在flatten中的位置啊我的乖乖！！！
                 lin_idx = lim_x.long() \
                           + lim_y.long() * event_sequence._image_width \
                           + lim_t.long() * event_sequence._image_width * event_sequence._image_height
-
+                # 下边公式对应“alex zhu的voxel出处”的公式2、3, 这里可以判断(lim_x-x)一定小于1，因为lim_x本就是x取整得到的
+                # 这里看着这么像三线性插值呢，计算的是他到(left,right xyt)的权重
                 weight = polarity * (1-(lim_x-x).abs()) * (1-(lim_y-y).abs()) * (1-(lim_t-t).abs())
+                # 实现指定行列相加,将index加到对应的voxel_grid_flat上
                 voxel_grid_flat.index_add_(dim=0, index=lin_idx[mask], source=weight[mask].float())
-
+    # 这个和flatten共享一块内存,本质上还是那个对象
     return voxel_grid
